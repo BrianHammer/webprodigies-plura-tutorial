@@ -10,14 +10,22 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import React from "react";
 
-type Props = { children: React.ReactNode; params: { agencyId: string } };
+type Props = {
+  children: React.ReactNode;
+  params: { agencyId: string };
+};
 
-const Layout = async ({ children, params }: Props) => {
+const layout = async ({ children, params }: Props) => {
   const agencyId = await verifyAndAcceptInvitation();
   const user = await currentUser();
 
-  if (!user) return redirect("/");
-  if (!agencyId) return redirect("/agency");
+  if (!user) {
+    return redirect("/");
+  }
+
+  if (!agencyId) {
+    return redirect("/agency");
+  }
 
   if (
     user.privateMetadata.role !== "AGENCY_OWNER" &&
@@ -25,21 +33,15 @@ const Layout = async ({ children, params }: Props) => {
   )
     return <Unauthorized />;
 
-  let allNotifications: any = [];
-
+  let allNoti: any = [];
   const notifications = await getNotificationAndUser(agencyId);
-
-  if (notifications) allNotifications = notifications;
+  if (notifications) allNoti = notifications;
 
   return (
     <div className="h-screen overflow-hidden">
-      <Sidebar id={params.agencyId} type={"agency"} />
+      <Sidebar id={params.agencyId} type="agency" />
       <div className="md:pl-[300px]">
-        <InfoBar
-          notifications={allNotifications}
-          role={allNotifications.User?.role}
-          className="relative"
-        />
+        <InfoBar notifications={allNoti} role={allNoti.User?.role} />
         <div className="relative">
           <BlurPage>{children}</BlurPage>
         </div>
@@ -48,4 +50,4 @@ const Layout = async ({ children, params }: Props) => {
   );
 };
 
-export default Layout;
+export default layout;

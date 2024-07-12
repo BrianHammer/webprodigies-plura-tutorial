@@ -10,6 +10,7 @@ import React, { useEffect, useState } from "react";
 import { useToast } from "../ui/use-toast";
 import { useRouter } from "next/navigation";
 import {
+  changeUserPermissions,
   getAuthUserDetails,
   getUserPermissions,
   saveActivityLogsNotification,
@@ -25,7 +26,15 @@ import {
   CardHeader,
   CardTitle,
 } from "../ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "../ui/form";
 import {
   SelectContent,
   SelectTrigger,
@@ -39,6 +48,7 @@ import { Button } from "../ui/button";
 import Loading from "../global/loading";
 import { Separator } from "../ui/separator";
 import { Switch } from "../ui/switch";
+import { v4 } from "uuid";
 
 type Props = {
   id: string | null;
@@ -115,6 +125,7 @@ const UserDetails = ({ id, type, userData, subAccounts }: Props) => {
 
   const onSubmit = async (values: z.infer<typeof userDataSchema>) => {
     if (!id) return;
+
     if (userData || data?.user) {
       const updatedUser = await updateUser(values);
       authUserData?.Agency?.SubAccount.filter((subacc) =>
@@ -146,6 +157,61 @@ const UserDetails = ({ id, type, userData, subAccounts }: Props) => {
     } else {
       console.log("Error could not submit");
     }
+  };
+
+  const onChangePermission = async (
+    subAccountId: string,
+    val: boolean,
+    permissionsId: string | undefined
+  ) => {
+    if (!data.user?.email) return;
+    setLoadingPermissions(true);
+    const response = await changeUserPermissions(
+      permissionsId ? permissionsId : v4(),
+      data.user.email,
+      subAccountId,
+      val
+    );
+
+    // Log changes if there is an agency
+    if (type === "agency") {
+      await saveActivityLogsNotification({
+        agencyId: authUserData?.Agency?.id,
+        description: `Gave ${userData?.name} access to | ${
+          subAccountPermissions?.Permissions.find(
+            (p) => p.subAccountId === subAccountId
+          )?.SubAccount.name
+        } `,
+        subaccountId: subAccountPermissions?.Permissions.find(
+          (p) => p.subAccountId === subAccountId
+        )?.SubAccount.id,
+      });
+    }
+
+    // Make a toast if successful, and return a perm
+    if (response) {
+      toast({
+        title: "Success",
+        description: "The request was successfull",
+      });
+      if (subAccountPermissions) {
+        subAccountPermissions.Permissions.find((perm) => {
+          if (perm.subAccountId === subAccountId) {
+            return { ...perm, access: !perm.access };
+          }
+          return perm;
+        });
+      }
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Failed",
+        description: "Could not update permissions",
+      });
+    }
+    // Refresh, and then setLoading to false
+    router.refresh();
+    setLoadingPermissions(false);
   };
 
   return (

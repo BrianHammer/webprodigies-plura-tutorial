@@ -414,6 +414,7 @@ export const updateUser = async (user: Partial<User>) => {
     data: { ...user },
   });
 
+  // Update permissions clerk sees
   await clerkClient.users.updateUserMetadata(response.id, {
     privateMetadata: {
       role: user.role || "SUBACCOUNT_USER",
@@ -421,4 +422,63 @@ export const updateUser = async (user: Partial<User>) => {
   });
 
   return response;
+};
+
+export const changeUserPermissions = async (
+  permissionId: string | undefined,
+  userEmail: string,
+  subAccountId: string,
+  permission: boolean
+) => {
+  try {
+    const res = await db.permissions.upsert({
+      where: { id: permissionId },
+      update: { access: permission },
+      create: {
+        access: permission,
+        email: userEmail,
+        subAccountId: subAccountId,
+      },
+    });
+
+    return res;
+  } catch (error) {
+    console.log("Could not change permissions:\n\n", error);
+  }
+};
+
+export const getSubaccountDetails = async (subaccountId: string) => {
+  const res = await db.subAccount.findUnique({
+    where: {
+      id: subaccountId,
+    },
+  });
+
+  return res;
+};
+
+export const deleteSubaccount = async (subaccountId: string) => {
+  const res = await db.subAccount.delete({ where: { id: subaccountId } });
+
+  return res;
+};
+
+export const deleteUser = async (userId: string) => {
+  await clerkClient.users.updateUserMetadata(userId, {
+    privateMetadata: {
+      role: undefined,
+    },
+  });
+
+  const deletedUser = await db.user.delete({ where: { id: userId } });
+
+  return deletedUser;
+};
+
+export const getUser = async (id: string) => {
+  const user = await db.user.findMany({
+    where: { id: id },
+  });
+
+  return user;
 };
